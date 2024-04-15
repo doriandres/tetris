@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+	xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+	xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    x:Class="Tetris.MainPage"
+    Background="Black">
+    
+    <HorizontalStackLayout 
+            HorizontalOptions="Center"
+            VerticalOptions="Center"
+            Spacing="100">
+        
+        <toolkit:MediaElement
+            x:Name="TetrisMusic"
+            Source="embed://Tetris.mp3"       
+            IsVisible="Hidden"
+            ShouldShowPlaybackControls="False"
+            />
+        
+        <VerticalStackLayout 
+            HorizontalOptions="Start"
+            VerticalOptions="Center">
+            <Label 
+                HorizontalOptions="Center"
+                Text="Score"
+                FontSize="Title"
+                FontAttributes="Bold"/>
+            <Label 
+                x:Name="TetrisScore" 
+                HorizontalOptions="Center"
+                FontSize="Title"
+                Text="0"/>
+        </VerticalStackLayout>
+        <VerticalStackLayout
+            HorizontalOptions="Center"
+            VerticalOptions="Center">
+            <Label 
+                VerticalOptions="Start"
+                HorizontalOptions="Center"
+                Text="Tetris"
+                FontSize="Header"
+                FontAttributes="Bold"/>
+            
+            <FlexLayout
+              x:Name="TetrisBoard"
+              HorizontalOptions="Center"
+              VerticalOptions="Center"            
+              Background="DimGray"
+              Direction="Row"
+              WidthRequest="400"
+              HeightRequest="800"
+              Wrap="Wrap"
+              AlignItems="Center"
+              JustifyContent="SpaceAround"
+              AlignContent="SpaceAround"/>
+            
+            <Label
+              x:Name="GameOverLabel"
+              VerticalOptions="End"
+              HorizontalOptions="Center"
+              TextColor="Lime"
+              FontAttributes="Bold"                
+              Text=""
+              FontSize="Large"/>
+        </VerticalStackLayout>
+        
+        <VerticalStackLayout 
+            HorizontalOptions="End"
+            VerticalOptions="Center"
+            Spacing="50">
+            
+            <Label 
+                HorizontalOptions="Center"
+                FontSize="Title"
+                FontAttributes="Bold"
+                Text="Next"/>
+            
+            <FlexLayout
+                x:Name="TetrisNextBoard"
+                HorizontalOptions="Center"                
+                Direction="Row"
+                WidthRequest="160"
+                HeightRequest="160"
+                Wrap="Wrap"
+                AlignItems="Center"
+                JustifyContent="SpaceAround"
+                AlignContent="SpaceAround"/>
+        </VerticalStackLayout>
+    </HorizontalStackLayout>
+</ContentPage>

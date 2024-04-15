@@ -1,2 +1,2 @@
-# tetris
- Sample Tetris game created with Maui in .NET8
+# Tetris
+Tetris game made with Maui .NET 8 for Windows
