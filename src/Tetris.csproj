@@ -60,4 +60,12 @@
 		<PackageReference Include="SharpHook" Version="5.3.2" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Compile Remove="C:\Users\Dorian\.nuget\packages\microsoft.windowsappsdk\1.5.240311000\buildTransitive\..\include\DeploymentManagerAutoInitializer.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Remove="C:\Users\Dorian\.nuget\packages\microsoft.windowsappsdk\1.5.240311000\buildTransitive\..\include\WindowsAppSDK-VersionInfo.cs" />
+	</ItemGroup>
+
 </Project>

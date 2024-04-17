@@ -8,34 +8,22 @@ public partial class MainPage : ContentPage
 {
     private readonly Border[,] GridBoxes = new Border[10, 20];
     private readonly bool[,] FilledBoxes = new bool[10, 20];
-    private long ScorePoints = 0;
-
-    private bool IsGameOver = false;
     private readonly Border[,] NextGridBoxes = new Border[4, 4];
 
+    private long ScorePoints = 0;
+    private bool IsGameOver = false;
+    private bool IsCheckingGame = false;
     private TetrisShape CurrentShape;
     private TetrisShape NextShape;
-
-    private bool IsPainting = false;
     private int FallIntervalInMs = 400;
-
     private TetrisRotation TetrisRotation = TetrisRotation.Degrees0;
     private int PositionX = 4;
     private int PositionY = 0;
-
     private TetrisRotation PreviousRotation;
     private int PreviousX;
     private int PreviousY;
 
-    private TetrisShape[] AvailableShapes = [
-        new TangoShape(),
-        new OscarShape(),
-        new IndiaShape(),
-        new JuliettShape(),
-        new LimaShape(),
-        new SierraShape(),
-        new ZuluShape(),
-    ];
+    private TetrisShape[] AvailableShapes = [new TangoShape(), new OscarShape(), new IndiaShape(), new JuliettShape(), new LimaShape(), new SierraShape(), new ZuluShape()];
 
     public MainPage()
     {
@@ -49,10 +37,10 @@ public partial class MainPage : ContentPage
         CurrentShape = GetRandomShape();
         NextShape = GetRandomShape();
 
-        RenderNext();
+        PaintNextShape();
 
-        TetrisController.KeyPressed += OnKeyPressed;
-        _ = GameLoop().ConfigureAwait(true);
+        TetrisController.KeyPressed += OnKeyDown;
+        _ = Loop().ConfigureAwait(true);
 
         TetrisMusic.Loaded += (_, _) =>
         {
@@ -60,9 +48,38 @@ public partial class MainPage : ContentPage
             TetrisMusic.ShouldLoopPlayback = true;
         };
     }
-    public void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
+
+    private TetrisShape GetRandomShape()
     {
-        if (IsPainting) return;
+        Random random = new();
+        random.Shuffle(AvailableShapes);
+        var i = random.Next(AvailableShapes.Length);
+        return AvailableShapes[i];
+    }
+
+    private (int x, int y)[] GetCurrentShapePoints()
+    {
+        return CurrentShape.Build(PositionX, PositionY, GridBoxes.GetLength(0), GridBoxes.GetLength(1), TetrisRotation);
+    }
+
+    private void OnKeyDown(object? sender, KeyboardHookEventArgs e)
+    {
+        if (MainThread.IsMainThread)
+        {
+            HandleKeyBoard(e);
+        }
+        else
+        {
+            MainThread.BeginInvokeOnMainThread(() => HandleKeyBoard(e));
+        }
+    }
+
+    private void HandleKeyBoard(KeyboardHookEventArgs e)
+    {
+        if (IsCheckingGame || IsGameOver)
+        {
+            return;
+        }
 
         switch (e.Data.KeyCode)
         {
@@ -82,7 +99,7 @@ public partial class MainPage : ContentPage
                         TetrisRotation = TetrisRotation.Degrees0;
                         break;
                 }
-                Render();
+                Paint();
                 break;
             case KeyCode.VcLeft:
                 PositionX -= 1;
@@ -90,7 +107,7 @@ public partial class MainPage : ContentPage
                 {
                     PositionX = 0;
                 }
-                Render();
+                Paint();
                 break;
             case KeyCode.VcRight:
                 PositionX += 1;
@@ -98,7 +115,7 @@ public partial class MainPage : ContentPage
                 {
                     PositionX = GridBoxes.GetLength(0) - 1;
                 }
-                Render();
+                Paint();
                 break;
             case KeyCode.VcDown:
                 PositionY += 1;
@@ -106,12 +123,11 @@ public partial class MainPage : ContentPage
                 {
                     PositionY = GridBoxes.GetLength(1) - 1;
                 }
-                Render();
+                Paint();
                 break;
             default:
                 break;
         }
-
     }
 
     private void BuildGrid()
@@ -152,7 +168,7 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private void RenderNext()
+    private void PaintNextShape()
     {
         var nextPoints = NextShape.Build(0, 0, 4, 4, TetrisRotation.Degrees0);
 
@@ -174,124 +190,7 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private TetrisShape GetRandomShape()
-    {
-        Random random = new();
-        random.Shuffle(AvailableShapes);
-        var i = random.Next(AvailableShapes.Length);
-        return AvailableShapes[i];
-    }
-
-
     private bool CheckOverlap((int x, int y)[] points) => points.Any(p => FilledBoxes[p.x, p.y]);
-
-    private async void Paint()
-    {
-        if (IsPainting) return;
-
-        IsPainting = true;
-
-        var lastPoints = CurrentShape.Build(PreviousX, PreviousY, GridBoxes.GetLength(0), GridBoxes.GetLength(1), PreviousRotation);
-        foreach (var (x, y) in lastPoints) GridBoxes.At(x, y).Background = Colors.White;
-
-        var shapePoints = CurrentShape.Build(PositionX, PositionY, GridBoxes.GetLength(0), GridBoxes.GetLength(1), TetrisRotation);
-
-        if (CheckOverlap(shapePoints))
-        {
-            PositionY = PreviousY;
-            PositionX = PreviousX;
-            TetrisRotation = PreviousRotation;
-
-            shapePoints = CurrentShape.Build(PreviousX, PreviousY, GridBoxes.GetLength(0), GridBoxes.GetLength(1), PreviousRotation);
-
-            IsGameOver = PositionY == 0;
-
-            foreach (var (x, y) in shapePoints) GridBoxes.At(x, y).Background = IsGameOver ? Colors.Black : CurrentShape.GetColor();
-
-            if (IsGameOver)
-            {
-                GameOverLabel.Text = "Game Over!";
-                return;
-            }
-        }
-        else
-        {
-            foreach (var (x, y) in shapePoints) GridBoxes.At(x, y).Background = CurrentShape.GetColor();
-        }
-
-        if (CheckForLanding(shapePoints))
-        {
-            foreach (var (x, y) in shapePoints) FilledBoxes[x, y] = true;
-
-            for (var y = FilledBoxes.GetLength(1) - 1; y >= 0;)
-            {
-                var rowFilled = true;
-
-                for (var x = 0; x < FilledBoxes.GetLength(0); x++) rowFilled = rowFilled && FilledBoxes[x, y];
-
-                if (rowFilled)
-                {
-                    for (var x = 0; x < FilledBoxes.GetLength(0); x++)
-                    {
-                        GridBoxes.At(x, y).Background = Colors.White;
-                        FilledBoxes[x, y] = false;
-                    }
-
-                    await Task.Yield();
-
-                    for (var iy = y - 1; iy >= 0; iy--)
-                    {
-                        for (var x = 0; x < FilledBoxes.GetLength(0); x++)
-                        {
-                            FilledBoxes[x, iy + 1] = FilledBoxes[x, iy];
-                            GridBoxes.At(x, iy + 1).Background = GridBoxes.At(x, iy).Background;
-                            FilledBoxes[x, iy] = false;
-                            GridBoxes.At(x, iy).Background = Colors.White;
-                        }
-                        await Task.Yield();
-                    }
-
-                    ScorePoints += 100;
-                    TetrisScore.Text = ScorePoints.ToString();
-                }
-                else
-                {
-                    y--;
-                }
-            }
-
-            TetrisRotation = TetrisRotation.Degrees0;
-            PreviousRotation = TetrisRotation;
-
-            PositionY = 0;
-            PositionX = 4;
-
-            PreviousX = PositionX;
-            PreviousY = PositionY;
-
-            CurrentShape = NextShape;
-            NextShape = GetRandomShape();
-
-            RenderNext();
-
-            await Task.Delay(FallIntervalInMs).ConfigureAwait(true);
-        }
-        else
-        {
-            PreviousRotation = TetrisRotation;
-            PreviousX = PositionX;
-            PreviousY = PositionY;
-        }
-
-        IsPainting = false;
-    }
-
-
-    private void Render()
-    {
-        if (MainThread.IsMainThread) Paint();
-        else MainThread.BeginInvokeOnMainThread(Paint);
-    }
 
     private bool CheckForLanding((int x, int y)[] points)
     {
@@ -302,25 +201,145 @@ public partial class MainPage : ContentPage
             return true;
         }
 
-        foreach (var (x, y) in points) if (FilledBoxes[x, y + 1]) return true;
+        foreach (var (x, y) in points)
+        {
+            if (FilledBoxes[x, y + 1])
+            {
+                return true;
+            }
+        };
 
         return false;
     }
 
-    private async Task GameLoop()
+    private async Task CheckGame()
+    {
+        var shapePoints = GetCurrentShapePoints();
+
+        if (!CheckForLanding(shapePoints))
+        {
+            PositionY++;            
+            return;
+        }
+
+        if (PositionY == 0)
+        {
+            IsGameOver = true;
+            GameOverLabel.Text = "Game Over!";
+
+            return;
+        }
+
+        foreach (var (x, y) in shapePoints)
+        {
+            FilledBoxes[x, y] = true;
+        };
+
+        var checkY = FilledBoxes.GetLength(1);
+        --checkY;
+
+        while (checkY > -1)
+        {
+            var rowFilled = true;
+
+            for (var x = 0; x < FilledBoxes.GetLength(0); x++)
+            {
+                rowFilled = rowFilled && FilledBoxes[x, checkY];
+            }
+
+            if (!rowFilled)
+            {
+                --checkY;
+                continue;
+            }
+
+            for (var x = 0; x < FilledBoxes.GetLength(0); x++)
+            {
+                FilledBoxes[x, checkY] = false;
+                GridBoxes[x, checkY].Background = Colors.White;                
+            }
+
+            await Task.Delay(FallIntervalInMs).ConfigureAwait(true);
+
+            for (var aboveCheckY = checkY - 1; aboveCheckY > -1; aboveCheckY--)
+            {
+                for (var x = 0; x < FilledBoxes.GetLength(0); x++)
+                {
+                    FilledBoxes[x, aboveCheckY + 1] = FilledBoxes[x, aboveCheckY];
+                    GridBoxes[x, aboveCheckY + 1].Background = GridBoxes.At(x, aboveCheckY).Background;
+
+                    FilledBoxes[x, aboveCheckY] = false;
+                    GridBoxes[x, aboveCheckY].Background = Colors.White;
+                }
+            }
+
+            ScorePoints += 100;
+            TetrisScore.Text = ScorePoints.ToString();
+
+            await Task.Delay(FallIntervalInMs).ConfigureAwait(true);
+        }
+
+        TetrisRotation = TetrisRotation.Degrees0;
+        PreviousRotation = TetrisRotation;
+        PositionY = 0;
+        PositionX = 4;
+        PreviousX = PositionX;
+        PreviousY = PositionY;
+        CurrentShape = NextShape;
+        NextShape = GetRandomShape();
+        PaintNextShape();
+
+        await Task.Delay(FallIntervalInMs).ConfigureAwait(true);
+    }
+
+    private void Paint()
+    {
+        var shapePoints = GetCurrentShapePoints();
+
+        if (CheckOverlap(shapePoints))
+        {
+            PositionY = PreviousY;
+            PositionX = PreviousX;
+            TetrisRotation = PreviousRotation;
+
+            return;
+        }
+
+        if (PreviousX != PositionX || PreviousY != PositionY || TetrisRotation != PreviousRotation)
+        {
+            var lastPoints = CurrentShape.Build(PreviousX, PreviousY, GridBoxes.GetLength(0), GridBoxes.GetLength(1), PreviousRotation);
+
+            foreach (var (x, y) in lastPoints)
+            {                
+                GridBoxes[x, y].Background = Colors.White;                
+            }
+        }
+
+        foreach (var (x, y) in shapePoints)
+        {            
+            GridBoxes[x, y].Background = CurrentShape.GetColor();
+        }
+
+        PreviousRotation = TetrisRotation;
+        PreviousX = PositionX;
+        PreviousY = PositionY;
+    }
+
+    private async Task Tick()
+    {
+        Paint();
+        await Task.Delay(FallIntervalInMs).ConfigureAwait(true);
+        IsCheckingGame = true;
+        await CheckGame();
+        IsCheckingGame = false;
+    }
+
+    private async Task Loop()
     {
         while (!IsGameOver)
         {
-            if (!IsPainting)
-            {
-                Render();
-                await Task.Delay(FallIntervalInMs).ConfigureAwait(true);
-                PositionY++;
-            }
-            else
-            {
-                await Task.Yield();
-            }
+            await Task.Yield();
+            await Tick();
         }
 
         TetrisMusic.Stop();
